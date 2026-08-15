@@ -44,10 +44,11 @@ DEFAULT_CONFIG = {
     "darken": 0.25,           # 0~0.9
     "transparent_selectors": [".bg-background-win-alt"],
     "background_overrides": {
-        # 主卡片：把 --color-background 变量变半透明 → 所有嵌套 bg-background 页面容器自动透出
-        "section.bg-background.rounded-xl": "--color-background: rgba(22, 22, 22, 0.55)",
+        # 主卡片：把 --color-background 变量变半透明 → 所有嵌套 bg-background 页面容器自动透出。
+        # 注意：最大化时 ZCode 会把 rounded-xl 换成 rounded-none，需同时匹配两种状态。
+        "section.bg-background.rounded-xl, section.bg-background.rounded-none": "--color-background: rgba(22, 22, 22, 0.55)",
         # 显式兜底（个别容器可能带内联变量覆盖继承）
-        "div.bg-background.rounded-xl": "rgba(22, 22, 22, 0.55)",
+        "div.bg-background.rounded-xl, div.bg-background.rounded-none": "rgba(22, 22, 22, 0.55)",
         "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)",
     },
 }

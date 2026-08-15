@@ -90,14 +90,15 @@ python app/controller.py --shot x.png  # 注入后截图（调试用）
 {
   "transparent_selectors": [".bg-background-win-alt"],
   "background_overrides": {
-    "section.bg-background.rounded-xl": "--color-background: rgba(22, 22, 22, 0.55)",
-    "div.bg-background.rounded-xl": "rgba(22, 22, 22, 0.55)",
+    "section.bg-background.rounded-xl, section.bg-background.rounded-none": "--color-background: rgba(22, 22, 22, 0.55)",
+    "div.bg-background.rounded-xl, div.bg-background.rounded-none": "rgba(22, 22, 22, 0.55)",
     "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)"
   }
 }
 ```
 
 - 第一条把主内容卡片的 `--color-background` 变量改为半透明，**所有嵌套使用 `bg-background` 的页面容器（设置、自动化等）都会自动透出壁纸**，无需逐页配置；后两条是显式兜底。
+- 选择器同时匹配 `rounded-xl` / `rounded-none`：ZCode 窗口**最大化时**会把主卡片圆角类从 `rounded-xl` 换成 `rounded-none`，两条都匹配才能保证最大化后壁纸仍然透出。
 - `background_overrides` 的值若不含 `:` 则按 `background` 处理；若含 `:` 则按自定义 CSS 声明处理（多条用 `;` 分隔，各加 `!important`）。
 - 想让壁纸只出现在侧栏/边框、内容区保持不透明：把 `background_overrides` 改为 `{}`。
 - 这些选择器基于 ZCode 3.7.7 的内部类名；ZCode 升级若改了类名，相关规则静默失效（壁纸在透明处仍显示），不报错、不影响使用。也可用 `--probe` 探查新版本 DOM 后调整。
