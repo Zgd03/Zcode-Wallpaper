@@ -18,6 +18,7 @@ Zcode-Wallpaper/
 ├── config.json             # 运行时配置（本机，不入库）
 ├── config.example.json     # 配置模板
 ├── run.bat                 # Windows 一键启动 GUI
+├── auto_start.bat          # 桌面快捷方式入口：自动带壁纸启动 ZCode
 └── README.md
 ```
 
@@ -51,11 +52,23 @@ python app/main.py
 
 ```bash
 python app/main.py --cli launch      # 结束已运行的 ZCode → 带壁纸重启（前台阻塞运行）
+python app/main.py --auto-start      # 桌面快捷方式入口：自动带壁纸启动（后台常驻）
 python app/controller.py             # 仅启动控制器（附加/拉起 ZCode）
 python app/controller.py --attach    # 只附加已开的调试实例，不启动 ZCode
 python app/controller.py --probe     # 探测页面 DOM（用于调整透明化选择器）
 python app/controller.py --shot x.png  # 注入后截图（调试用）
 ```
+
+### 桌面快捷方式自动带壁纸启动
+
+本项目会把 ZCode 的**桌面/开始菜单快捷方式**改为指向 `auto_start.bat`（已备份原快捷方式为 `.lnk.bak`），这样**直接双击 ZCode 图标也会自动加载你保存的壁纸**：
+
+- 快捷方式 → `auto_start.bat` → `pythonw app\main.py --auto-start`
+- `--auto-start` 复用启动器同款流程：结束已在运行的 ZCode（确保调试端口生效）→ 清理旧控制器 → 后台启动控制器 → ZCode 带调试端口拉起并注入 `config.json` 里保存的壁纸。
+
+注意事项：
+- 若 ZCode 已在运行，点击快捷方式会**先结束再重启**（调试端口只能在启动时打开）。
+- ZCode 升级若重建了快捷方式，需要重新执行一次快捷方式修改（原 `.lnk.bak` 可直接还原；把新的快捷方式目标指回 `auto_start.bat` 即可）。项目本身的定制文件不受升级影响。
 
 ## 配置（config.json）
 

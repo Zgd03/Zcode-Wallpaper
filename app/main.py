@@ -129,6 +129,40 @@ def cli_launch(cfg):
     return controller_main([])
 
 
+def _auto_log(msg):
+    """把 auto-start 的运行日志追加到 controller.log，便于排查。"""
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(time.strftime("[%H:%M:%S] ") + "[auto-start] " + msg + "\n")
+    except Exception:
+        pass
+
+
+def auto_start(cfg):
+    """桌面快捷方式入口：按 config.json 自动带壁纸启动 ZCode。
+
+    复用启动器同款流程：结束已在运行的 ZCode（确保调试端口生效）→
+    清理旧控制器 → 独立进程启动控制器（它再以带调试端口的方式拉起
+    ZCode 并注入 config.json 里保存的壁纸）。返回退出码。
+    """
+    if not cfg.get("wallpaper") or not os.path.exists(cfg["wallpaper"]):
+        _auto_log("config.json 中没有有效壁纸图片，未启动。")
+        return 2
+    if not os.path.exists(cfg["zcode_path"]):
+        _auto_log(f"找不到 ZCode：{cfg['zcode_path']}")
+        return 2
+    if zcode_running(cfg["zcode_path"]):
+        _auto_log("ZCode 正在运行，先结束以应用调试端口…")
+        if not kill_zcode(cfg["zcode_path"]):
+            _auto_log("结束 ZCode 失败。")
+            return 3
+        _auto_log("已结束旧实例。")
+    kill_controllers()
+    spawn_controller(_auto_log)
+    _auto_log("控制器已启动，ZCode 即将带壁纸打开。")
+    return 0
+
+
 # ---------- GUI（现代暗色主题） ----------
 
 # 主题配色
@@ -488,10 +522,12 @@ class WallpaperGUI:
 
 def main():
     cfg = load_config()
-    if len(sys.argv) > 1 and sys.argv[1] == "--cli":
-        if len(sys.argv) > 2 and sys.argv[2] == "launch":
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--cli" and len(sys.argv) > 2 and sys.argv[2] == "launch":
             sys.exit(cli_launch(cfg))
-        print("用法：python main.py --cli launch")
+        if sys.argv[1] == "--auto-start":
+            sys.exit(auto_start(cfg))
+        print("用法：python app/main.py [--cli launch | --auto-start]")
         sys.exit(0)
     root = tk.Tk()
     WallpaperGUI(root, cfg)
