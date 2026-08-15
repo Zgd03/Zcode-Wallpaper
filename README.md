@@ -2,7 +2,7 @@
 
 近期高强度使用Zcode，正好流萤手办到了，想着换上个流萤壁纸给Zcode，所以vibe了一个壁纸启动器。
 功能：给 **ZCode 桌面客户端**（智谱 AI / Z.ai 的 Electron 开发应用）加**图片壁纸**：选一张图作为 ZCode 背景。
-
+![alt text](image.png)
 ## 目录结构
 
 ```
