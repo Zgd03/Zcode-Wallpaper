@@ -24,7 +24,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from config import CONTROLLER_PATH, LOCK_PATH, LOG_PATH, load_config, save_config
+from config import CONTROLLER_PATH, LOCK_PATH, LOG_PATH, is_video, load_config, save_config
 
 MODES = ["cover", "contain", "fill", "tile"]
 POSITIONS = ["center", "top", "bottom", "left", "right", "top left", "top right", "bottom left", "bottom right"]
@@ -330,8 +330,8 @@ class WallpaperGUI:
         self.preview_canvas = tk.Canvas(prev, bg=SURFACE, height=170, highlightthickness=0)
         self.preview_canvas.pack(fill="x", padx=1, pady=1)
 
-        # 壁纸图片 / ZCode 程序
-        self._field_row(outer, "壁纸图片", self.img_var, self.browse_image)
+        # 壁纸文件（图片或视频）/ ZCode 程序
+        self._field_row(outer, "壁纸文件", self.img_var, self.browse_image)
         self._field_row(outer, "ZCode 程序", self.zc_var, self.browse_zcode)
 
         # 样式
@@ -407,6 +407,11 @@ class WallpaperGUI:
         path = self.img_var.get().strip()
 
         if path and os.path.exists(path):
+            if is_video(path):
+                self._draw_placeholder(f"动态壁纸：{os.path.basename(path)}",
+                                       "视频背景（autoplay / 循环 / 静音）",
+                                       kind="video")
+                return
             ext = os.path.splitext(path)[1].lower()
             if ext in (".png", ".gif"):
                 try:
@@ -427,23 +432,29 @@ class WallpaperGUI:
             self._draw_placeholder(f"已选择：{os.path.basename(path)}",
                                    "该格式无法内置预览，仅 PNG / GIF 支持")
         else:
-            self._draw_placeholder("选择一张图片作为 ZCode 背景",
-                                   "支持 PNG / JPG / BMP / GIF / WebP")
+            self._draw_placeholder("选择一张图片或视频作为 ZCode 背景",
+                                   "图片 PNG/JPG/BMP/GIF/WebP · 视频 MP4/WebM/MOV 等")
 
-    def _draw_placeholder(self, line1, line2):
+    def _draw_placeholder(self, line1, line2, kind="image"):
         c = self.preview_canvas
         cw = c.winfo_width() or 580
         ch = c.winfo_height() or 170
         c.delete("all")
         cx, cy = cw // 2, (ch - 30) // 2
-        # 图片图标：圆角相框 + 太阳 + 山
+        # 外框
         _round_rect(c, cx - 30, cy - 26, cx + 30, cy + 26, 8,
                     outline="#46484f", width=2, fill="")
-        c.create_oval(cx + 10, cy - 18, cx + 20, cy - 8, outline="#5a5d63", width=2)
-        c.create_polygon(cx - 20, cy + 6, cx - 4, cy - 14, cx + 12, cy + 6,
-                         fill="", outline="#5a5d63", width=2)
-        c.create_polygon(cx - 2, cy + 6, cx + 8, cy - 8, cx + 20, cy + 6,
-                         fill="", outline="#5a5d63", width=2)
+        if kind == "video":
+            # 视频图标：播放三角（强调色）
+            c.create_polygon(cx - 6, cy - 12, cx - 6, cy + 12, cx + 14, cy,
+                             fill=ACCENT, outline="")
+        else:
+            # 图片图标：太阳 + 山
+            c.create_oval(cx + 10, cy - 18, cx + 20, cy - 8, outline="#5a5d63", width=2)
+            c.create_polygon(cx - 20, cy + 6, cx - 4, cy - 14, cx + 12, cy + 6,
+                             fill="", outline="#5a5d63", width=2)
+            c.create_polygon(cx - 2, cy + 6, cx + 8, cy - 8, cx + 20, cy + 6,
+                             fill="", outline="#5a5d63", width=2)
         c.create_text(cx, cy + 44, text=line1, fill=MUTED, font=(FONT, 10))
         c.create_text(cx, cy + 62, text=line2, fill="#5a5d63", font=(FONT, 9))
 
@@ -451,8 +462,13 @@ class WallpaperGUI:
 
     def browse_image(self):
         path = filedialog.askopenfilename(
-            title="选择壁纸图片",
-            filetypes=[("图片文件", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"), ("所有文件", "*.*")],
+            title="选择壁纸（图片或视频）",
+            filetypes=[
+                ("图片 / 视频", "*.png *.jpg *.jpeg *.bmp *.gif *.webp *.mp4 *.webm *.mov *.m4v *.mkv *.avi"),
+                ("图片", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                ("视频", "*.mp4 *.webm *.mov *.m4v *.mkv *.avi"),
+                ("所有文件", "*.*"),
+            ],
         )
         if path:
             self.img_var.set(path)

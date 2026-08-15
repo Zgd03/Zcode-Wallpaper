@@ -1,7 +1,7 @@
 # ZCode 壁纸启动器（Zcode-Wallpaper）
 
 近期高强度使用Zcode，正好流萤手办到了，想着换上个流萤壁纸给Zcode，所以vibe了一个壁纸启动器。
-功能：给 **ZCode 桌面客户端**（智谱 AI / Z.ai 的 Electron 开发应用）加**图片壁纸**：选一张图作为 ZCode 背景。
+功能：给 **ZCode 桌面客户端**（智谱 AI / Z.ai 的 Electron 开发应用）加**壁纸**：选一张**图片**（PNG/JPG/GIF/WebP 等）或**视频**（MP4/WebM/MOV 等，动态壁纸）作为 ZCode 背景。
 ![alt text](image.png)
 ## 目录结构
 
@@ -40,7 +40,7 @@ python app/main.py
 # 或双击 run.bat
 ```
 
-1. 点「浏览…」选择一张图片（PNG/JPG/BMP/GIF/WebP 均可）。
+1. 点「浏览…」选择一张**图片**（PNG/JPG/BMP/GIF/WebP）或**视频**（MP4/WebM/MOV 等，作为动态壁纸）。
 2. 确认 ZCode 程序路径已自动填入（`C:\Study\Zcode\ZCode.exe`）。
 3. 调整「样式模式 / 图片位置 / 暗化」。
 4. 点 **「启动/重启 ZCode（带壁纸）」**。若 ZCode 正在运行，会先结束再带壁纸启动。
@@ -75,7 +75,7 @@ python app/controller.py --shot x.png  # 注入后截图（调试用）
 | 字段 | 说明 | 默认 |
 |---|---|---|
 | `zcode_path` | ZCode.exe 路径 | `C:\Study\Zcode\ZCode.exe` |
-| `wallpaper` | 壁纸图片路径（相对项目根也行） | `assets/demo_wallpaper.png` |
+| `wallpaper` | 壁纸路径（图片或视频，相对项目根也行；按扩展名自动识别，`mp4/webm/mov/m4v/mkv/avi` 走动态壁纸） | `assets/demo_wallpaper.png` |
 | `port` | CDP 调试端口 | `9333` |
 | `image_port` | 本地图片服务端口 | `18765` |
 | `mode` | `cover` / `contain` / `fill` / `tile` | `cover` |

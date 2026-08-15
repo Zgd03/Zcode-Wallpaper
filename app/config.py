@@ -15,6 +15,15 @@ wallpaper / zcode_path 若填相对路径，按项目根解析（便于克隆后
 import json
 import os
 
+# 视为「动态壁纸」的视频扩展名
+VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v", ".mkv", ".avi"}
+
+
+def is_video(path):
+    """按扩展名判断是否为视频（动态壁纸）。"""
+    return os.path.splitext(str(path))[1].lower() in VIDEO_EXTS
+
+
 # 本文件位于 app/ 下：项目根是它的上一级
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(APP_DIR)

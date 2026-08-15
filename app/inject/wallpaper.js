@@ -5,11 +5,13 @@
  * 执行本脚本（立即应用），并在新文档加载时用 `Page.addScriptToEvaluateOnNewDocument`
  * 让本脚本在页面脚本之前运行。
  *
- * 原理：
- *   ZCode 的 html/body/#root 本身已是透明（background:0 0 !important）。
- *   这里在 body 下插入两个固定层（壁纸 + 暗化蒙层，z-index:0，pointer-events:none），
- *   并把 #root 提升为 position:relative; z-index:1，使整个 App UI 位于壁纸之上；
- *   再通过配置的透明化选择器把应用里“整块背景容器”置为透明，露出壁纸。
+ * 支持两种壁纸：
+ *   kind = "image"  → #zcode-wallpaper-layer 用 background-image 显示图片
+ *   kind = "video"  → #zcode-wallpaper-video 用 <video autoplay loop muted> 播放视频
+ * 暗化蒙层 #zcode-wallpaper-dim 始终在壁纸之上；#root 提升到 z-index:1 保证 UI 在最上。
+ *
+ * 幂等性：所有样式/属性赋值都先比较；视频的 src 只在变化时设置，避免周期性心跳
+ * 反复 load 导致视频闪断/重播。
  */
 (function () {
   'use strict';
@@ -43,8 +45,50 @@
     }
   }
 
+  function applyVideo(video, layer, url, mode, bgColor) {
+    setInline(layer, 'display:none;');
+    var fit = mode === 'contain' ? 'contain' : (mode === 'fill' ? 'fill' : 'cover');
+    setInline(video,
+      'position:fixed;inset:0;z-index:0;pointer-events:none;' +
+      'width:100%;height:100%;object-fit:' + fit + ';' +
+      'background-color:' + bgColor + ';');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('loop', '');
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('aria-hidden', 'true');
+    // 注意：muted 内容属性只影响 defaultMuted；当前静音态必须直接设属性，
+    // 否则非静音 autoplay 会被浏览器自动播放策略拦截。
+    video.muted = true;
+    video.defaultMuted = true;
+    // 幂等设置 src：URL 没变就不动，避免心跳重启视频
+    if (video.getAttribute('data-wp-src') !== url) {
+      video.setAttribute('data-wp-src', url);
+      video.src = url;
+      var tryPlay = function () {
+        var p = video.play();
+        if (p && p.catch) p.catch(function () {});
+      };
+      tryPlay();
+      video.addEventListener('canplay', tryPlay, { once: true });
+    }
+  }
+
+  function applyImage(video, layer, url, mode, position, repeat, bgColor) {
+    setInline(video, 'display:none;');
+    try { video.pause(); } catch (e) {}
+    setInline(layer,
+      'position:fixed;inset:0;z-index:0;pointer-events:none;' +
+      'background-color:' + bgColor + ';' +
+      (url ? ('background-image:' + cssUrl(url) + ';') : '') +
+      'background-position:' + position + ';' +
+      'background-repeat:' + repeat + ';' +
+      'background-size:' + (mode === 'tile' ? 'auto' : mode) + ';');
+  }
+
   function apply() {
     var url = CFG.url || '';
+    var kind = CFG.kind || 'image';
     var mode = CFG.mode || 'cover';
     var position = CFG.position || 'center';
     var repeat = CFG.repeat || 'no-repeat';
@@ -54,17 +98,16 @@
     // 高级：selector -> background 值（如 rgba(22,22,22,0.55)），优先级高于透明化列表
     var overrides = CFG.backgroundOverrides || {};
 
-    // 壁纸层
     var layer = el('div', 'zcode-wallpaper-layer');
-    setInline(layer,
-      'position:fixed;inset:0;z-index:0;pointer-events:none;' +
-      'background-color:' + bgColor + ';' +
-      (url ? ('background-image:' + cssUrl(url) + ';') : '') +
-      'background-position:' + position + ';' +
-      'background-repeat:' + repeat + ';' +
-      'background-size:' + (mode === 'tile' ? 'auto' : mode) + ';');
+    var video = el('video', 'zcode-wallpaper-video');
 
-    // 暗化蒙层（保证文字可读）
+    if (kind === 'video') {
+      applyVideo(video, layer, url, mode, bgColor);
+    } else {
+      applyImage(video, layer, url, mode, position, repeat, bgColor);
+    }
+
+    // 暗化蒙层（保证文字可读，位于壁纸之上）
     var dim = el('div', 'zcode-wallpaper-dim');
     setInline(dim,
       'position:fixed;inset:0;z-index:0;pointer-events:none;' +
@@ -75,7 +118,7 @@
     var style = el('style', 'zcode-wallpaper-style');
     var css = 'html,body,#root{background:transparent !important;}' +
       '#root{position:relative;z-index:1;}' +
-      '#zcode-wallpaper-layer,#zcode-wallpaper-dim{z-index:0;display:block;}' +
+      '#zcode-wallpaper-layer,#zcode-wallpaper-dim,#zcode-wallpaper-video{z-index:0;display:block;}' +
       (selectors.map(function (s) { return s + '{background:transparent !important;}'; }).join(''));
     for (var sel in overrides) {
       if (Object.prototype.hasOwnProperty.call(overrides, sel) && sel.trim()) {

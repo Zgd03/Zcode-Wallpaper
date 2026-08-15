@@ -29,7 +29,7 @@ import threading
 import time
 import urllib.request
 
-from config import CONFIG_PATH, INJECT_PATH, LOCK_PATH, load_config
+from config import CONFIG_PATH, INJECT_PATH, LOCK_PATH, is_video, load_config
 from wsclient import WebSocket, WebSocketError
 
 
@@ -73,8 +73,8 @@ def release_lock():
 # ---------- 本地图片服务 ----------
 
 
-class ImageHandler(http.server.BaseHTTPRequestHandler):
-    """提供壁纸图片的极简服务。"""
+class MediaHandler(http.server.BaseHTTPRequestHandler):
+    """提供壁纸的 HTTP 服务：支持图片与视频（含 Range 流式请求，供 <video> 播放）。"""
 
     wallpaper_path = None
     mime_type = "image/png"
@@ -87,18 +87,47 @@ class ImageHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
-        if not self.wallpaper_path or not os.path.exists(self.wallpaper_path):
+        fp = self.wallpaper_path
+        if not fp or not os.path.exists(fp):
             self.send_response(404)
             self.end_headers()
             return
-        with open(self.wallpaper_path, "rb") as f:
-            body = f.read()
-        self.send_response(200)
+
+        size = os.path.getsize(fp)
+        rng = self.headers.get("Range", "")
+
+        if rng.startswith("bytes="):
+            start_s, _, end_s = rng[6:].partition("-")
+            start = int(start_s) if start_s else 0
+            end = int(end_s) if end_s else size - 1
+            start = max(0, min(start, size - 1))
+            end = max(start, min(end, size - 1))
+            length = end - start + 1
+            self.send_response(206)
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        else:
+            start, end, length = 0, size - 1, size
+            self.send_response(200)
+
+        self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Type", self.mime_type)
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Length", str(length))
         self.end_headers()
-        self.wfile.write(body)
+
+        # 按需读取区间并流式写出（不整读大文件）
+        with open(fp, "rb") as f:
+            f.seek(start)
+            remaining = length
+            while remaining > 0:
+                chunk = f.read(min(65536, remaining))
+                if not chunk:
+                    break
+                try:
+                    self.wfile.write(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+                remaining -= len(chunk)
 
 
 class ThreadingServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -110,7 +139,7 @@ class ImageServer:
     def __init__(self, port):
         self.port = port
         # 自定义 handler 类，类属性保存壁纸路径/类型，实例可读取
-        self.Handler = type("WallpaperHandler", (ImageHandler,), {})
+        self.Handler = type("WallpaperHandler", (MediaHandler,), {})
         self.Handler.wallpaper_path = None
         self.Handler.mime_type = "image/png"
         # 固定端口绑定 = 单实例硬保证（另一控制器会绑定失败退出）。
@@ -132,6 +161,8 @@ class ImageServer:
 
     def set_wallpaper(self, path):
         mime, _ = mimetypes.guess_type(path)
+        if not mime:
+            mime = "video/mp4" if is_video(path) else "image/png"
         self.Handler.wallpaper_path = path
         self.Handler.mime_type = mime or "image/png"
 
@@ -155,6 +186,7 @@ def build_inject_source(cfg, image_url):
     """把配置烘焙进注入脚本源码。"""
     inject_cfg = {
         "url": image_url,
+        "kind": "video" if is_video(cfg.get("wallpaper", "")) else "image",
         "mode": cfg["mode"],
         "position": cfg["position"],
         "repeat": cfg["repeat"],
