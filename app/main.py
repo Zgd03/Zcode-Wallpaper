@@ -129,81 +129,223 @@ def cli_launch(cfg):
     return controller_main([])
 
 
-# ---------- GUI ----------
+# ---------- GUI（现代暗色主题） ----------
+
+# 主题配色
+BG       = "#1a1b1e"   # 窗口背景
+SURFACE  = "#222327"   # 卡片/面板
+SURFACE2 = "#2a2b30"   # 输入框 / 次级按钮
+SURFACE3 = "#323339"   # 悬停
+BORDER   = "#3a3b42"   # 边框
+TEXT     = "#e9eaee"   # 主文字
+MUTED    = "#9aa0a8"   # 次要文字
+ACCENT   = "#6c8cff"   # 强调色
+ACCENT_H = "#7d9aff"   # 强调色悬停
+ACCENT_D = "#5876e8"   # 强调色按下
+OK       = "#3fb950"
+WARN     = "#d29922"
+ERR      = "#f85149"
+
+FONT       = "Segoe UI"
+FONT_SEMI  = "Segoe UI Semibold"
+FONT_MONO  = "Consolas"
+
+# 应用图标（内嵌 base64 PNG，64x64 圆角 "Z"）
+ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADKUlEQVR4nO2ba0sUURjHf/PsbkpRYmJJRWL1Iix6URmZFVpkGkVU7yTpAxRBIH2HwBe98AsEXSi6v8rK0iSi7GIXL12liF5EYV7yXsYwLjOs47Zuzs6ZPf1gl3N2mfOc/3+euezseQyS4Ejt+DgKUldjGNPdxgi66H81w0hGeOFyTqEg7e85NF0jjETFqyo6ETPimWAkstdjxbs5rQJ/m6ebEUaie11V0VMx1dxjTZDpDhAUnHOOd/iK294Puvh4JsQe3hLvbB9k8fE0OLVK7JdRp9JBfJSoFrdDQdxSP53ET2VCVLOgOYLmGDqkv5NYnYLmCJojaI6gOWGvBs6IQO3RmRtvcBiO16FvBtx6FLAMGAfGfiW/fThkt7u+QEPLjExrchw8YmQUjp1MbtuydbC/1GqPjsHpG/DboyeSgmIsyIY9m+3+9Wb42u1dPEEhxICDFRCZyMt3n6HpqccxUYjtRVCwyGoPj1qp7/WzeEER8nJg1ya7f6URvvd4H1dQABGorrTP/J0f4f6LFMVGAco3wNKF9g3P2frUxRZ8ZnEuVBTb/Ut3obtPEwNCISv1QxOzePUBHraldg6Cj1QWWxlgMjAE526mfg6CT+TnwY4iu3+hAXp/amJAOGTd8Jhnf5PWN/Ck04+Z4I8Bu0us675J3wCcv41vSKoDmnd629bbfVN8/yB6GBAJQ3UFRP+fbemA52/xFUllsL1bIDfbavf0w8U7+I6kKtCKJbB1rd03L3nmpU8LAzIi1lk/ujLhwUto60IJJBVB9pVCTpbV7u6Fy40og3gdYGU+lKyx2uZv+zP1MDSCHgZkzoKqnXa/uRVef0IpxMvBD5RB9lyr/e0HXLuHcoS9GnjVMti42u7Pz4ITh5Mfr+kZXG0iGAbMzoSq8skPPMXxrH+6RH8yzzTixaCFBTBvDoEg7MWgjzusVxAQNEfQHEFzBM2R6OrpeKsp03WFWF2NYfzPADRHzDcdDgO39MctA9LRhHirYCVePU06mOCmwalV3L5ItNxEddwqXxKuGWoPuAmJlv0Ybh9qXTbnRNvCSSdal8460bZ4GhdUNSOZ8vk/PyUd3kOqPqgAAAAASUVORK5CYII="
+
+
+def _font(size, weight="normal"):
+    return (FONT_SEMI if weight == "bold" else FONT, size)
+
+
+def _set_dark_titlebar(root):
+    """Windows 10/11 下把原生标题栏设为深色。"""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+        for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE
+            v = ctypes.c_int(1)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, attr, ctypes.byref(v), ctypes.sizeof(v))
+    except Exception:
+        pass
+
+
+def _mk_label(parent, text="", color=TEXT, size=10, weight="normal"):
+    return tk.Label(parent, text=text, bg=parent["bg"], fg=color,
+                    font=_font(size, weight), anchor="w")
+
+
+def _mk_entry(parent, var, width=30):
+    return tk.Entry(parent, textvariable=var, width=width, relief="flat", bd=0,
+                    bg=SURFACE2, fg=TEXT, insertbackground=TEXT, font=_font(10),
+                    highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+
+
+def _mk_button(parent, text, command, kind="secondary", padx=14, pady=7):
+    """扁平按钮，带悬停/按下反馈。"""
+    if kind == "primary":
+        normal, hover, press, fg = ACCENT, ACCENT_H, ACCENT_D, "#ffffff"
+    elif kind == "danger":
+        normal, hover, press, fg = "#c93a3a", "#d94a4a", "#b02f2f", "#ffffff"
+    else:
+        normal, hover, press, fg = SURFACE2, SURFACE3, "#24252a", TEXT
+    btn = tk.Button(parent, text=text, command=command, relief="flat", bd=0,
+                    bg=normal, fg=fg, activebackground=press, activeforeground=fg,
+                    font=_font(10, "bold" if kind == "primary" else "normal"),
+                    padx=padx, pady=pady, cursor="hand2", highlightthickness=0)
+    btn.bind("<Enter>", lambda e, b=btn, h=hover: b.configure(bg=h))
+    btn.bind("<Leave>", lambda e, b=btn, n=normal: b.configure(bg=n))
+    return btn
+
+
+def _mk_card(parent):
+    return tk.Frame(parent, bg=SURFACE, highlightbackground=BORDER, highlightthickness=1)
+
+
+def _mk_section(parent, title):
+    """小节标题：竖条强调色 + 文字。"""
+    row = tk.Frame(parent, bg=BG)
+    tk.Frame(row, bg=ACCENT, width=3, height=14).pack(side="left", padx=(0, 7))
+    tk.Label(row, text=title, bg=BG, fg=TEXT, font=_font(11, "bold")).pack(side="left")
+    return row
+
+
+def _round_rect(c, x1, y1, x2, y2, r, **kw):
+    pts = [x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2,
+           x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
+    return c.create_polygon(pts, smooth=True, **kw)
+
 
 class WallpaperGUI:
     def __init__(self, root, cfg):
         self.root = root
         self.cfg = cfg
         root.title("ZCode 壁纸启动器")
-        root.geometry("560x560")
-        root.minsize(520, 520)
+        root.geometry("620x700")
+        root.minsize(580, 640)
+        root.configure(bg=BG)
+        try:
+            root.iconphoto(True, tk.PhotoImage(data=ICON_B64))
+        except Exception:
+            pass
 
-        pad = {"padx": 10, "pady": 4}
-        frm = ttk.Frame(root, padding=12)
-        frm.pack(fill="both", expand=True)
+        self._style_ttk(root)
 
-        # --- 图片路径 ---
-        row = ttk.Frame(frm); row.pack(fill="x", **pad)
-        ttk.Label(row, text="壁纸图片：", width=10).pack(side="left")
+        # 字段变量
         self.img_var = tk.StringVar(value=self.cfg.get("wallpaper", ""))
-        ttk.Entry(row, textvariable=self.img_var).pack(side="left", fill="x", expand=True)
-        ttk.Button(row, text="浏览…", command=self.browse_image).pack(side="left", padx=4)
-
-        # --- 预览 ---
-        self.preview = tk.Label(frm, text="（选择图片后此处显示预览；仅 PNG/GIF 可内置预览）",
-                                bg="#202020", fg="#999", height=6)
-        self.preview.pack(fill="x", **pad)
+        self.zc_var = tk.StringVar(value=self.cfg.get("zcode_path", ""))
+        self.port_var = tk.StringVar(value=str(self.cfg.get("port", 9333)))
+        self.mode_var = tk.StringVar(value=self.cfg.get("mode", "cover"))
+        self.pos_var = tk.StringVar(value=self.cfg.get("position", "center"))
+        self.darken_var = tk.DoubleVar(value=float(self.cfg.get("darken", 0.0)))
+        self.sel_var = tk.StringVar(value=", ".join(self.cfg.get("transparent_selectors", [])))
         self._photo = None
 
-        # --- ZCode 路径 ---
-        row = ttk.Frame(frm); row.pack(fill="x", **pad)
-        ttk.Label(row, text="ZCode 程序：", width=10).pack(side="left")
-        self.zc_var = tk.StringVar(value=self.cfg.get("zcode_path", ""))
-        ttk.Entry(row, textvariable=self.zc_var).pack(side="left", fill="x", expand=True)
-        ttk.Button(row, text="浏览…", command=self.browse_zcode).pack(side="left", padx=4)
+        self._build(root)
+        _set_dark_titlebar(root)
 
-        # --- 端口 ---
-        row = ttk.Frame(frm); row.pack(fill="x", **pad)
-        ttk.Label(row, text="调试端口：", width=10).pack(side="left")
-        self.port_var = tk.StringVar(value=str(self.cfg.get("port", 9333)))
-        ttk.Entry(row, textvariable=self.port_var, width=10).pack(side="left")
-        ttk.Label(row, text="   样式模式：").pack(side="left", padx=(12, 0))
-        self.mode_var = tk.StringVar(value=self.cfg.get("mode", "cover"))
-        ttk.Combobox(row, textvariable=self.mode_var, values=MODES, state="readonly", width=8).pack(side="left")
+        self.darken_var.trace_add("write", lambda *a: self._update_darken_label())
+        self.img_var.trace_add("write", lambda *a: self.refresh_preview())
 
-        # --- 位置 / 暗化 ---
-        row = ttk.Frame(frm); row.pack(fill="x", **pad)
-        ttk.Label(row, text="图片位置：", width=10).pack(side="left")
-        self.pos_var = tk.StringVar(value=self.cfg.get("position", "center"))
-        ttk.Combobox(row, textvariable=self.pos_var, values=POSITIONS, state="readonly", width=10).pack(side="left")
-        ttk.Label(row, text="   暗化：").pack(side="left", padx=(12, 0))
-        self.darken_var = tk.DoubleVar(value=float(self.cfg.get("darken", 0.0)))
-        ttk.Scale(row, from_=0.0, to=0.9, variable=self.darken_var, length=140).pack(side="left")
-        self.darken_label = ttk.Label(row, text=f"{self.darken_var.get():.0%}")
-        self.darken_label.pack(side="left", padx=4)
-        self.darken_var.trace_add("write", lambda *a: self.darken_label.config(text=f"{self.darken_var.get():.0%}"))
-
-        # --- 高级：透明化选择器 ---
-        ttk.Label(frm, text="高级：透明化容器选择器（逗号分隔的 CSS 选择器，让壁纸在这些区域透出）").pack(anchor="w", **pad)
-        self.sel_var = tk.StringVar(value=", ".join(self.cfg.get("transparent_selectors", [])))
-        ttk.Entry(frm, textvariable=self.sel_var).pack(fill="x", **pad)
-
-        # --- 按钮 ---
-        row = ttk.Frame(frm); row.pack(fill="x", **pad)
-        ttk.Button(row, text="保存配置", command=self.on_save).pack(side="left", padx=4)
-        ttk.Button(row, text="启动/重启 ZCode（带壁纸）", command=self.on_launch).pack(side="left", padx=4)
-
-        # --- 日志 ---
-        self.log = tk.Text(frm, height=8, state="disabled", bg="#1b1b1b", fg="#d4d4d4")
-        self.log.pack(fill="both", expand=True, **pad)
-        self.log_scroll = ttk.Scrollbar(frm, command=self.log.yview)
-        self.log.config(yscrollcommand=self.log_scroll.set)
-
-        self.append_log("就绪。选择图片后点「启动/重启 ZCode（带壁纸）」。")
+        self.append_log("就绪。选择图片后点「启动 / 重启 ZCode（带壁纸）」。")
         self.refresh_preview()
 
+    # ---------- 主题 ----------
+
+    def _style_ttk(self, root):
+        st = ttk.Style(root)
+        st.theme_use("clam")
+        st.configure("Dark.TCombobox",
+                     fieldbackground=SURFACE2, background=SURFACE2, foreground=TEXT,
+                     arrowcolor=MUTED, bordercolor=BORDER, lightcolor=BORDER,
+                     darkcolor=BORDER, padding=4, font=_font(10))
+        st.configure("Dark.Horizontal.TScale",
+                     troughcolor=SURFACE2, background=BG, bordercolor=BG,
+                     lightcolor=ACCENT, darkcolor=ACCENT, sliderlength=14)
+        root.option_add("*TCombobox*Listbox.background", SURFACE3)
+        root.option_add("*TCombobox*Listbox.foreground", TEXT)
+        root.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
+
+    # ---------- 构建 ----------
+
+    def _build(self, root):
+        outer = tk.Frame(root, bg=BG)
+        outer.pack(fill="both", expand=True, padx=18, pady=16)
+
+        # 头部
+        tk.Label(outer, text="ZCode 壁纸启动器", bg=BG, fg=TEXT,
+                 font=(FONT_SEMI, 17)).pack(anchor="w")
+        tk.Label(outer, text="给 ZCode 桌面客户端换一张好看的背景", bg=BG, fg=MUTED,
+                 font=(FONT, 10)).pack(anchor="w", pady=(2, 0))
+
+        # 预览卡片
+        prev = _mk_card(outer)
+        prev.pack(fill="x", pady=(14, 2))
+        self.preview_canvas = tk.Canvas(prev, bg=SURFACE, height=170, highlightthickness=0)
+        self.preview_canvas.pack(fill="x", padx=1, pady=1)
+
+        # 壁纸图片 / ZCode 程序
+        self._field_row(outer, "壁纸图片", self.img_var, self.browse_image)
+        self._field_row(outer, "ZCode 程序", self.zc_var, self.browse_zcode)
+
+        # 样式
+        _mk_section(outer, "样式").pack(fill="x", pady=(16, 0))
+        row = tk.Frame(outer, bg=BG)
+        row.pack(fill="x", pady=(8, 0))
+        tk.Label(row, text="模式", bg=BG, fg=MUTED, font=_font(10)).pack(side="left")
+        ttk.Combobox(row, textvariable=self.mode_var, values=MODES, state="readonly",
+                     style="Dark.TCombobox", width=9).pack(side="left", padx=(8, 24))
+        tk.Label(row, text="位置", bg=BG, fg=MUTED, font=_font(10)).pack(side="left")
+        ttk.Combobox(row, textvariable=self.pos_var, values=POSITIONS, state="readonly",
+                     style="Dark.TCombobox", width=11).pack(side="left", padx=(8, 0))
+
+        row = tk.Frame(outer, bg=BG)
+        row.pack(fill="x", pady=(10, 0))
+        tk.Label(row, text="暗化", bg=BG, fg=MUTED, font=_font(10)).pack(side="left")
+        ttk.Scale(row, from_=0.0, to=0.9, variable=self.darken_var,
+                  style="Dark.Horizontal.TScale", length=180).pack(side="left", padx=(8, 10))
+        self.darken_label = tk.Label(row, text="", bg=BG, fg=ACCENT,
+                                     font=_font(10, "bold"))
+        self.darken_label.pack(side="left")
+
+        # 高级
+        _mk_section(outer, "高级").pack(fill="x", pady=(16, 0))
+        self._field_row(outer, "调试端口", self.port_var, None)
+        self._field_row(outer, "透明化容器", self.sel_var, None)
+
+        # 操作
+        row = tk.Frame(outer, bg=BG)
+        row.pack(fill="x", pady=(16, 0))
+        _mk_button(row, "保存配置", self.on_save).pack(side="left")
+        _mk_button(row, "启动 / 重启 ZCode（带壁纸）", self.on_launch,
+                   kind="primary").pack(side="right")
+
+        # 日志
+        log_card = _mk_card(outer)
+        log_card.pack(fill="x", pady=(14, 0))
+        self.log = tk.Text(log_card, height=6, state="disabled", bg="#141519",
+                           fg="#b6bac2", font=(FONT_MONO, 9), relief="flat", bd=0,
+                           padx=10, pady=8, highlightthickness=0)
+        self.log.pack(fill="x")
+
+    def _field_row(self, parent, label, var, browse_cmd=None):
+        row = tk.Frame(parent, bg=BG)
+        row.pack(fill="x", pady=(10, 0))
+        tk.Label(row, text=label, bg=BG, fg=MUTED, font=_font(10),
+                 width=8, anchor="w").pack(side="left")
+        e = _mk_entry(row, var)
+        e.pack(side="left", fill="x", expand=True, ipady=5)
+        if browse_cmd:
+            _mk_button(row, "浏览…", browse_cmd, padx=12, pady=5).pack(side="left", padx=(8, 0))
+        return row
+
     # ---------- 工具 ----------
+
+    def _update_darken_label(self):
+        self.darken_label.config(text=f"{int(round(self.darken_var.get() * 100))}%")
 
     def append_log(self, msg):
         self.log.config(state="normal")
@@ -211,28 +353,56 @@ class WallpaperGUI:
         self.log.see("end")
         self.log.config(state="disabled")
 
+    # ---------- 预览 ----------
+
     def refresh_preview(self):
-        path = self.img_var.get()
+        c = self.preview_canvas
+        c.delete("all")
         self._photo = None
+        cw = c.winfo_width() or 580
+        ch = c.winfo_height() or 170
+        path = self.img_var.get().strip()
+
         if path and os.path.exists(path):
             ext = os.path.splitext(path)[1].lower()
             if ext in (".png", ".gif"):
                 try:
-                    self._photo = tk.PhotoImage(file=path)
-                    # 缩放过大时等比缩小预览
-                    w, h = self._photo.width(), self._photo.height()
-                    max_w, max_h = 540, 120
-                    if w > max_w or h > max_h:
-                        ratio = min(max_w / w, max_h / h)
-                        nw, nh = max(1, int(w * ratio)), max(1, int(h * ratio))
-                        self._photo = self._photo.subsample(int(w / nw) or 1, int(h / nh) or 1)
-                    self.preview.config(image=self._photo, text="", bg="#202020")
+                    ph = tk.PhotoImage(file=path)
+                    w, h = ph.width(), ph.height()
+                    ratio = min((cw - 36) / max(w, 1), (ch - 36) / max(h, 1))
+                    if ratio < 1:
+                        sx = max(1, int(round(w * ratio)) or 1)
+                        sy = max(1, int(round(h * ratio)) or 1)
+                        ph = ph.subsample(int(w / sx) or 1, int(h / sy) or 1)
+                    self._photo = ph
+                    c.create_image((cw or 580) // 2, ch // 2, image=ph)
+                    c.create_text(12, ch - 14, anchor="w", text="当前壁纸预览",
+                                  fill=MUTED, font=(FONT, 9))
+                    return
                 except Exception:
-                    self.preview.config(image="", text="（该图片无法用 tkinter 预览，可换 PNG/GIF）")
-            else:
-                self.preview.config(image="", text=f"（{ext} 格式无法内置预览，仅 PNG/GIF 支持；已选择该文件）")
+                    pass
+            self._draw_placeholder(f"已选择：{os.path.basename(path)}",
+                                   "该格式无法内置预览，仅 PNG / GIF 支持")
         else:
-            self.preview.config(image="", text="（选择图片后此处显示预览；仅 PNG/GIF 可内置预览）")
+            self._draw_placeholder("选择一张图片作为 ZCode 背景",
+                                   "支持 PNG / JPG / BMP / GIF / WebP")
+
+    def _draw_placeholder(self, line1, line2):
+        c = self.preview_canvas
+        cw = c.winfo_width() or 580
+        ch = c.winfo_height() or 170
+        c.delete("all")
+        cx, cy = cw // 2, (ch - 30) // 2
+        # 图片图标：圆角相框 + 太阳 + 山
+        _round_rect(c, cx - 30, cy - 26, cx + 30, cy + 26, 8,
+                    outline="#46484f", width=2, fill="")
+        c.create_oval(cx + 10, cy - 18, cx + 20, cy - 8, outline="#5a5d63", width=2)
+        c.create_polygon(cx - 20, cy + 6, cx - 4, cy - 14, cx + 12, cy + 6,
+                         fill="", outline="#5a5d63", width=2)
+        c.create_polygon(cx - 2, cy + 6, cx + 8, cy - 8, cx + 20, cy + 6,
+                         fill="", outline="#5a5d63", width=2)
+        c.create_text(cx, cy + 44, text=line1, fill=MUTED, font=(FONT, 10))
+        c.create_text(cx, cy + 62, text=line2, fill="#5a5d63", font=(FONT, 9))
 
     # ---------- 事件 ----------
 
