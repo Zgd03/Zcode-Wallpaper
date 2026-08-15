@@ -1,0 +1,18 @@
+{
+  "zcode_path": "C:\\Study\\Zcode\\ZCode.exe",
+  "wallpaper": "assets/demo_wallpaper.png",
+  "port": 9333,
+  "image_port": 18765,
+  "mode": "cover",
+  "position": "center",
+  "repeat": "no-repeat",
+  "darken": 0.25,
+  "transparent_selectors": [
+    ".bg-background-win-alt"
+  ],
+  "background_overrides": {
+    "section.bg-background.rounded-xl": "--color-background: rgba(22, 22, 22, 0.55)",
+    "div.bg-background.rounded-xl": "rgba(22, 22, 22, 0.55)",
+    "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)"
+  }
+}

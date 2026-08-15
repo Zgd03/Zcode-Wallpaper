@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# 本机运行时产物（含个人壁纸路径，不入库）
+config.json
+controller.log
+controller.lock
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db
