@@ -1,19 +1,7 @@
 # ZCode 壁纸启动器（Zcode-Wallpaper）
 
-给 **ZCode 桌面客户端**（智谱 AI / Z.ai 的 Electron 开发应用）加**图片壁纸**：选一张图作为 ZCode 背景。
-
-**核心原则：不修改 `app.asar`、不写入 ZCode 安装目录任何文件**，因此 **ZCode 升级后定制不会被覆盖**。
-
-## 原理（为什么升级不丢）
-
-- ZCode 是 Electron 应用，其主渲染页 `html, body, #root` 本身已是透明背景（`background: 0 0 !important`）。
-- 本项目通过 **CDP（Chrome DevTools Protocol）** 注入：
-  1. 启动器以 `--remote-debugging-port=9333` 启动 ZCode；
-  2. 控制器连接 DevTools WebSocket，向页面注入 `app/inject/wallpaper.js`；
-  3. 注入脚本在 `body` 下插入壁纸层 + 暗化层，并把 `#root` 提升到 `z-index:1`，再按配置把应用的背景容器改为透明/半透明，露出壁纸；
-  4. 控制器常驻心跳，页面刷新自动重新注入，换壁纸无需重启。
-- 壁纸图片由控制器内置的本地 HTTP 服务提供（`http://127.0.0.1:18765/wallpaper`），规避 `file://` 子资源限制。
-- 所有定制文件都在本项目目录内（`app/`、`config.json`、`assets/`），ZCode 升级替换的是 `C:\Study\Zcode\*`，与本项目无关，因此天然不受影响。
+近期高强度使用Zcode，正好流萤手办到了，想着换上个流萤壁纸给Zcode，所以vibe了一个壁纸启动器。
+功能：给 **ZCode 桌面客户端**（智谱 AI / Z.ai 的 Electron 开发应用）加**图片壁纸**：选一张图作为 ZCode 背景。
 
 ## 目录结构
 
