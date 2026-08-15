@@ -30,12 +30,18 @@ MODES = ["cover", "contain", "fill", "tile"]
 POSITIONS = ["center", "top", "bottom", "left", "right", "top left", "top right", "bottom left", "bottom right"]
 
 
+def _no_window():
+    """Windows 下抑制子进程控制台窗口（pythonw 调用控制台程序时防止黑框闪烁）。"""
+    return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+
 def zcode_running(exe_path):
     name = os.path.basename(exe_path).lower()
     try:
         out = subprocess.run(
             ["tasklist", "/FI", f"IMAGENAME eq {name}"],
             capture_output=True, text=True, timeout=10,
+            creationflags=_no_window(),
         ).stdout
         return name in out.lower()
     except Exception:
@@ -50,7 +56,7 @@ def kill_zcode(exe_path, log=None):
     if log:
         log("ZCode 正在运行，正在结束进程…")
     subprocess.run(["taskkill", "/IM", name, "/T", "/F"],
-                   capture_output=True, text=True)
+                   capture_output=True, text=True, creationflags=_no_window())
     deadline = time.time() + 20
     while time.time() < deadline:
         if not zcode_running(exe_path):
@@ -67,7 +73,8 @@ def kill_controllers():
     if os.path.exists(LOCK_PATH):
         try:
             pid = int(open(LOCK_PATH, encoding="utf-8").read().strip())
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                           capture_output=True, creationflags=_no_window())
         except Exception:
             pass
     try:
@@ -78,7 +85,7 @@ def kill_controllers():
              "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
              f"Where-Object {{ $_.CommandLine -like '{pattern}' }} | "
              "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"],
-            capture_output=True,
+            capture_output=True, creationflags=_no_window(),
         )
     except Exception:
         pass
@@ -99,7 +106,9 @@ def kill_controllers():
 def spawn_controller(log=None):
     """以独立进程启动控制器（GUI 关闭后壁纸保持注入）。"""
     logf = open(LOG_PATH, "a", encoding="utf-8")
-    flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+    flags = (subprocess.CREATE_NEW_PROCESS_GROUP
+             | subprocess.DETACHED_PROCESS
+             | subprocess.CREATE_NO_WINDOW)
     subprocess.Popen(
         [sys.executable, "-u", CONTROLLER_PATH],
         cwd=os.path.dirname(CONTROLLER_PATH), stdout=logf, stderr=subprocess.STDOUT,

@@ -39,7 +39,8 @@ from wsclient import WebSocket, WebSocketError
 def pid_alive(pid):
     try:
         out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"],
-                             capture_output=True, text=True, timeout=10).stdout
+                             capture_output=True, text=True, timeout=10,
+                             creationflags=subprocess.CREATE_NO_WINDOW).stdout
         return "No tasks" not in out and str(pid) in out
     except Exception:
         return False
@@ -456,6 +457,7 @@ def is_zcode_running(cfg):
         out = subprocess.run(
             ["tasklist", "/FI", f"IMAGENAME eq {os.path.basename(cfg['zcode_path'])}"],
             capture_output=True, text=True, timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW,
         ).stdout
         return os.path.basename(cfg["zcode_path"]).lower() in out.lower()
     except Exception:
