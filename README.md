@@ -90,18 +90,18 @@ python app/controller.py --shot x.png  # 注入后截图（调试用）
 {
   "transparent_selectors": [".bg-background-win-alt"],
   "background_overrides": {
-    "section.bg-background.rounded-xl, section.bg-background.rounded-none": "--color-background: rgba(22, 22, 22, 0.55)",
-    "div.bg-background.rounded-xl, div.bg-background.rounded-none": "rgba(22, 22, 22, 0.55)",
+    "section.bg-background": "--color-background: rgba(22, 22, 22, 0.55)",
+    "div.bg-background": "rgba(22, 22, 22, 0.55)",
     "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)"
   }
 }
 ```
 
 - 第一条把主内容卡片的 `--color-background` 变量改为半透明，**所有嵌套使用 `bg-background` 的页面容器（设置、自动化等）都会自动透出壁纸**，无需逐页配置；后两条是显式兜底。
-- 选择器同时匹配 `rounded-xl` / `rounded-none`：ZCode 窗口**最大化时**会把主卡片圆角类从 `rounded-xl` 换成 `rounded-none`，两条都匹配才能保证最大化后壁纸仍然透出。
+- 选择器**不要绑定圆角类名**（`rounded-xl` / `rounded-none` / `rounded-[5px]` …）：ZCode 每次升级都可能换一个（3.7.x 是 `rounded-xl`，最大化时 `rounded-none`，3.12.3 改成 `rounded-[5px]`），绑死就会整条规则静默失效、右侧内容区被不透明卡片盖住。用 `section.bg-background` 这种「标签 + `bg-background`」的写法，圆角怎么变都能命中。
 - `background_overrides` 的值若不含 `:` 则按 `background` 处理；若含 `:` 则按自定义 CSS 声明处理（多条用 `;` 分隔，各加 `!important`）。
-- 想让壁纸只出现在侧栏/边框、内容区保持不透明：把 `background_overrides` 改为 `{}`。
-- 这些选择器基于 ZCode 3.7.7 的内部类名；ZCode 升级若改了类名，相关规则静默失效（壁纸在透明处仍显示），不报错、不影响使用。也可用 `--probe` 探查新版本 DOM 后调整。
+- 想让壁纸只出现在侧栏/边框、内容区保持不透明：把 `background_overrides` 改为 `{}`（此时**不会**触发下面的兜底自愈）。
+- **兜底自愈**：如果 `background_overrides` 里的选择器在当前版本一个都没命中（升级改了类名），注入脚本会自动把「面积够大且不透明的 `bg-background` 表面」按同样的半透明值处理，保证壁纸不会整块被盖住；弹层/菜单不受影响。同时会把情况写进 `controller.log`（`[injector] 注意：…未命中，已自动把 N 个内容表面改为半透明兜底`），并可用 `--probe` 查看 `diag=` 一行。兜底只保证「看得见壁纸」，想恢复逐页精致的透明效果，还是照新版 DOM 更新选择器。
 
 **运行中改 `config.json`（或 GUI 重新保存）会自动生效**（控制器每 3 秒检测一次），无需重启 ZCode。
 
@@ -112,12 +112,13 @@ python app/controller.py --shot x.png  # 注入后截图（调试用）
 ## 常见问题
 
 - **壁纸没生效？** 确认 ZCode 是本启动器启动的（`controller.log` 有 `已注入 N 个页面`）；检查 `config.json` 的 `wallpaper` 路径存在。
+- **壁纸只在侧栏显示、右侧内容区被一块深色面板盖住？** ZCode 升级换了内部类名，导致 `background_overrides` 的选择器不再命中。新版注入脚本会自动兜底（日志里有 `未命中，已自动把 N 个内容表面改为半透明兜底`），照提示用 `--probe` 更新选择器即可彻底修好。
 - **端口被占用？** 改 `port`；或先 `taskkill /IM ZCode.exe /F /T` 再启动。
 - **想恢复原样？** 结束 ZCode，用官方方式启动即可（本项目不写入 ZCode 任何文件）。
 
 ## 升级说明
 
-ZCode 升级（自动更新或手动安装）会整体替换 `C:\Study\Zcode\*`，本项目的定制文件都在项目目录，升级后仍通过启动器注入壁纸，无需重装。若升级改变了渲染 DOM 结构，用 `--probe` 探查后调整 `transparent_selectors` / `background_overrides` 即可。
+ZCode 升级（自动更新或手动安装）会整体替换 `C:\Study\Zcode\*`，本项目的定制文件都在项目目录，升级后仍通过启动器注入壁纸，无需重装。若升级改变了渲染 DOM 结构（典型症状：右侧内容区整块盖住壁纸），注入脚本会自动兜底半透明化并在 `controller.log` 里提示；要恢复完整效果，用 `--probe` 探查后更新 `config.json` 里的 `transparent_selectors` / `background_overrides`。
 
 ## 免责声明
 

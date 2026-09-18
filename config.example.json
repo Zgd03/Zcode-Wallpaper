@@ -11,8 +11,8 @@
     ".bg-background-win-alt"
   ],
   "background_overrides": {
-    "section.bg-background.rounded-xl, section.bg-background.rounded-none": "--color-background: rgba(22, 22, 22, 0.55)",
-    "div.bg-background.rounded-xl, div.bg-background.rounded-none": "rgba(22, 22, 22, 0.55)",
+    "section.bg-background": "--color-background: rgba(22, 22, 22, 0.55)",
+    "div.bg-background": "rgba(22, 22, 22, 0.55)",
     "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)"
   }
 }

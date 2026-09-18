@@ -125,7 +125,10 @@ class MediaHandler(http.server.BaseHTTPRequestHandler):
                     break
                 try:
                     self.wfile.write(chunk)
-                except (BrokenPipeError, ConnectionResetError):
+                except OSError:
+                    # 客户端中途断开（切换/关闭视频、seek 都会发生，Windows 上是
+                    # ConnectionAbortedError WinError 10053）：正常现象，直接停发，
+                    # 否则 socketserver 会把整段 traceback 打进 controller.log。
                     break
                 remaining -= len(chunk)
 
@@ -195,11 +198,14 @@ def build_inject_source(cfg, image_url):
         "backgroundOverrides": cfg.get("background_overrides", {}),
     }
     source = read_inject_source()
+    # 末尾取一次诊断值：Runtime.evaluate 的返回值即最后一条语句的值，
+    # 控制器据此判断 background_overrides 的选择器是否还命中（见 _report_diag）。
     return (
         "window.__zcodeWallpaperConfig = "
         + json.dumps(inject_cfg, ensure_ascii=False)
         + ";\n"
         + source
+        + "\nwindow.__zcodeWallpaperDiag;"
     )
 
 
@@ -306,6 +312,7 @@ class WallpaperInjector:
         self.image_server = image_server
         self.clients = {}
         self.last_source = None
+        self.last_diag = {}  # target_id -> 上次打印过的诊断，避免每 3 秒刷屏
 
     def make_source(self):
         # 带缓存破坏参数：换壁纸文件后 URL 变化，浏览器才会重新拉取
@@ -349,14 +356,46 @@ class WallpaperInjector:
             res = client.evaluate(source)
             if res.get("exceptionDetails"):
                 print(f"[injector] 应用异常: {res['exceptionDetails'].get('text','')}")
+            else:
+                self._report_diag(client, res)
         except Exception as e:
             print(f"[injector] evaluate 失败: {e}")
+
+    def _report_diag(self, client, res):
+        """把注入脚本的诊断写进日志：background_overrides 失效不再无声无息。
+
+        诊断值形如 {"matched":1,"auto":0}——matched=0 表示配置里的选择器在当前
+        ZCode 版本一个都没命中（类名变了），此时脚本会兜底自愈（auto>0）。
+        """
+        try:
+            raw = res["result"]["result"].get("value")
+        except Exception:
+            return
+        if not raw or self.last_diag.get(client.target_id) == raw:
+            return
+        self.last_diag[client.target_id] = raw
+        try:
+            d = json.loads(raw)
+        except (TypeError, ValueError):
+            return
+        if d.get("matched"):
+            return  # 配置正常命中，不刷日志
+        if d.get("auto"):
+            print(f"[injector] 注意：background_overrides 的选择器在 ZCode 当前版本未命中，"
+                  f"已自动把 {d['auto']} 个内容表面改为半透明兜底。"
+                  f"建议按新版 DOM 更新 config.json 的选择器（python app/controller.py --probe）。",
+                  flush=True)
+        else:
+            print("[injector] 警告：background_overrides 的选择器未命中，且没找到可兜底的内容表面——"
+                  "壁纸可能被内容区盖住，请用 --probe 检查新版 DOM。", flush=True)
 
     def heartbeat(self, client):
         # 周期性全量重新注入：每次都用控制器当前的 source 覆盖页面里的
         # __zcodeWallpaperConfig，防止被旧配置/旧控制器污染导致样式回退。
         try:
-            client.evaluate(self.make_source())
+            res = client.evaluate(self.make_source())
+            if not res.get("exceptionDetails"):
+                self._report_diag(client, res)
         except Exception:
             pass
 
@@ -434,6 +473,7 @@ PROBE_SCRIPT = r"""
   lines.push('layer=' + (!!document.getElementById('zcode-wallpaper-layer')));
   lines.push('style-el=' + (!!document.getElementById('zcode-wallpaper-style')));
   lines.push('apply-fn=' + (typeof window.__zcodeWallpaperApply));
+  lines.push('diag=' + window.__zcodeWallpaperDiag);
   return lines.join('\n');
 })()
 """

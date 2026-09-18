@@ -45,10 +45,12 @@ DEFAULT_CONFIG = {
     "transparent_selectors": [".bg-background-win-alt"],
     "background_overrides": {
         # 主卡片：把 --color-background 变量变半透明 → 所有嵌套 bg-background 页面容器自动透出。
-        # 注意：最大化时 ZCode 会把 rounded-xl 换成 rounded-none，需同时匹配两种状态。
-        "section.bg-background.rounded-xl, section.bg-background.rounded-none": "--color-background: rgba(22, 22, 22, 0.55)",
-        # 显式兜底（个别容器可能带内联变量覆盖继承）
-        "div.bg-background.rounded-xl, div.bg-background.rounded-none": "rgba(22, 22, 22, 0.55)",
+        # 注意：选择器里**不要**绑定圆角类名（rounded-xl / rounded-none / rounded-[5px] …）：
+        # ZCode 每次升级都可能换一个（3.7.x 用 rounded-xl、最大化时 rounded-none、3.12.3 改成
+        # rounded-[5px]），绑死就整条规则静默失效、右侧内容区被不透明卡片盖住。
+        "section.bg-background": "--color-background: rgba(22, 22, 22, 0.55)",
+        # 卡片外框那两条 2px 描边条
+        "div.bg-background": "rgba(22, 22, 22, 0.55)",
         "main#automations-main-toast-anchor": "rgba(22, 22, 22, 0.55)",
     },
 }
